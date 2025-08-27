@@ -7,10 +7,15 @@ const SignUpForm = () => {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+
+  const navigate = useNavigate();
 
   const submitHandler = async (ev) => {
     ev.preventDefault();
-    if (username && password) {
+    setError("");
+
+    try {
       const resp = await fetch(
         `${import.meta.env.VITE_BACKEND_URL}/api/signup`,
         {
@@ -18,15 +23,24 @@ const SignUpForm = () => {
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({
-            username,
-            email,
-            password,
-          })
+          body: JSON.stringify({ username, email, password })
         }
       );
+
+      if (!resp.ok) {
+        const data = await resp.json();
+        setError(data?.message || "Signup failed");
+        return;
+      }
+
+      // Redirect or show message
+      navigate("/login");  // Or auto-login
+    } catch (err) {
+      console.error("Signup error:", err);
+      setError("Network or server error");
     }
-  }
+  };
+
 
   return (
     <div className="card">
@@ -84,12 +98,16 @@ const SignUpForm = () => {
 const LoginForm = ({ afterLogin = () => null }) => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
 
+  const navigate = useNavigate();
   const { dispatch } = useGlobalReducer();
 
   const submitHandler = async (ev) => {
     ev.preventDefault();
-    if (username && password) {
+    setError("");
+
+    try {
       const resp = await fetch(
         `${import.meta.env.VITE_BACKEND_URL}/api/token`,
         {
@@ -97,32 +115,41 @@ const LoginForm = ({ afterLogin = () => null }) => {
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({
-            username,
-            password,
-          })
+          body: JSON.stringify({ username, password }),
         }
       );
 
-      if (resp.ok) {
-        dispatch({
-          type: "login",
-          payload: await resp.json(),
-        });
-        afterLogin();
+      if (!resp.ok) {
+        const data = await resp.json();
+        setError(data?.msg || "Login failed");
+        return;
       }
+
+      const data = await resp.json();
+
+      dispatch({
+        type: "login",
+        payload: data,
+      });
+
+      afterLogin();
+      navigate("/"); // Or redirect wherever
+    } catch (err) {
+      console.error("Login error:", err);
+      setError("Login failed - server/network issue");
     }
-  }
+  };
 
   return (
     <div className="card">
       <form className="card-body" onSubmit={submitHandler}>
+        {error && <div className="alert alert-danger">{error}</div>}
         <div className="mb-2">
-          <label htmlFor="signupUser" className="form-label">
+          <label htmlFor="loginUser" className="form-label">
             Username:
           </label>
           <input
-            id="signupUser"
+            id="loginUser"
             className="form-control"
             autoComplete="username"
             value={username}
@@ -131,11 +158,11 @@ const LoginForm = ({ afterLogin = () => null }) => {
           />
         </div>
         <div className="mb-2">
-          <label htmlFor="signupPass" className="form-label">
+          <label htmlFor="loginPass" className="form-label">
             Password:
           </label>
           <input
-            id="signupPass"
+            id="loginPass"
             type="password"
             autoComplete="current-password"
             className="form-control"
@@ -154,6 +181,8 @@ const LoginForm = ({ afterLogin = () => null }) => {
     </div>
   );
 };
+
+
 
 const AuthedOrNone = ({ children }) => {
   const { store } = useGlobalReducer();
